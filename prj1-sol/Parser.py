@@ -1,5 +1,6 @@
 import re
 
+
 # handle comments
 
 class Parser:
@@ -11,11 +12,14 @@ class Parser:
         self.index = -1
         self.next_token()
         self.result = "["
+        self.inside = False
 
     def next_token(self):
         self.index += 1
-        if not self.index >= len(self.tokens): self.current_token = self.tokens[self.index]
-        else : self.current_token = None
+        if not self.index >= len(self.tokens):
+            self.current_token = self.tokens[self.index]
+        else:
+            self.current_token = None
 
     def match(self, expected_token, expected_token_alternative=None):
         if self.current_token == expected_token:
@@ -50,12 +54,12 @@ class Parser:
                 self.next_token()
             self.match('\n')
         elif self.current_token == '\n':
-            self.result += ','
             self.next_token()
         else:
             raise SyntaxError(f"Unexpected token: {self.current_token}")
 
     def parse_list(self):
+        self.inside = True
         self.match("[")
         self.result += '{ "%k": "list", "%v": ['
         if self.current_token != "]":
@@ -65,9 +69,11 @@ class Parser:
                 self.match(",")
                 self.parse_expression()
         self.result += '] }'
+        self.inside = False
         self.match("]")
 
     def parse_tuple(self):
+        self.inside = True
         self.match("{")
         self.result += '{ "%k": "tuple", "%v": ['
         if self.current_token != "}":
@@ -77,9 +83,11 @@ class Parser:
                 self.match(",")
                 self.parse_expression()
         self.result += '] }'
+        self.inside = False
         self.match("}")
 
     def parse_dictionary(self):
+        self.inside = True
         self.match("%{")
         self.result += '{ "%k": "map", "%v": ['
         if self.current_token != "}":
@@ -89,34 +97,42 @@ class Parser:
                 self.match(",")
                 self.parse_key_pair()
         self.result += '] }'
+        self.inside = False
         self.match("}")
 
     def parse_key_pair(self):
         self.result += '['
         self.parse_expression()
         self.result += ','
-        self.match(":","=>")
+        self.match(":", "=>")
         self.parse_expression()
         self.result += ']'
 
     def parse_boolean(self):
         self.result += '{ "%k": "bool", "%v": ' + self.current_token + ' }'
+        if not self.inside:
+            self.result += ','
         self.match(self.current_token)
 
     def parse_atom(self):
-        # handle special cases.
+        # handle special cases. what about just charaters, are they not allowed eg: a, b etc
         if not re.search("truefalse", self.current_token):
-            if self.current_token[0]!=':':
-                self.result += '{ "%k": "atom", "%v": "' + ':'+self.current_token + '" }'
+            if self.current_token[0] != ':':
+                self.result += '{ "%k": "atom", "%v": "' + ':' + self.current_token + '" }'
             else:
                 self.result += '{ "%k": "atom", "%v": "' + self.current_token + '" }'
+
+            if not self.inside:
+                self.result += ','
             self.match(self.current_token)
 
     def parse_number(self):
         if not re.search("[0-9_]*_$", self.current_token):
-            string = self.current_token.replace('_','')
-            self.result += '{ "%k": "int", "%v": ' + string + ' }'
+            self.result += '{ "%k": "int", "%v": ' + self.current_token + ' }'
             self.match(self.current_token)
+
+            if not self.inside:
+                self.result += ','
 
         else:
             raise SyntaxError(f"Bad integer value:  {self.current_token}")
@@ -126,7 +142,6 @@ class Parser:
         self.tokens = list(filter(None, re.findall(pattern, string)))
 
 
-p = Parser("false\ntrue\ntrue false")
+p = Parser("123_456_789\n1_2_3")
 p.parse_program()
 print(p.result)
-
