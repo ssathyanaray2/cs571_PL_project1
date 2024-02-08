@@ -128,8 +128,9 @@ class Parser:
 
     def parse_number(self):
         if not re.search("[0-9_]*_$", self.current_token):
-            self.result += '{ "%k": "int", "%v": ' + self.current_token + ' }'
-            self.match(self.current_token)
+            string = self.current_token.replace('_','')
+            self.result += '{ "%k": "int", "%v": ' + string + ' }'
+            self.match(self.current_token)  
 
             if not self.inside:
                 self.result += ','
