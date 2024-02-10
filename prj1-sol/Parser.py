@@ -1,4 +1,6 @@
+import json
 import re
+import sys
 
 
 # handle comments
@@ -7,12 +9,11 @@ class Parser:
 
     def __init__(self, input_string):
         self.tokens = []
-        self.tokenize(input_string)
+        self.tokenize(self.remove_comments_whitespace(input_string))
         self.current_token = None
         self.index = -1
         self.next_token()
-        self.result = "["
-        self.inside = False
+        self.result = []
 
     def next_token(self):
         self.index += 1
@@ -21,7 +22,7 @@ class Parser:
         else:
             self.current_token = None
 
-    def match(self, expected_token, expected_token_alternative=None):
+    def match(self, expected_token, expected_token_alternative=''):
         if self.current_token == expected_token:
             self.next_token()
 
@@ -33,116 +34,100 @@ class Parser:
 
     def parse_program(self):
         while self.current_token:
-            self.parse_expression()
-        self.result += ']'
+            aux = self.parse_expression()
+            self.result.append(aux)
+
+        return self.result
 
     def parse_expression(self):
         if self.current_token == "[":
-            self.parse_list()
+            return self.parse_list()
         elif self.current_token == "{":
-            self.parse_tuple()
+            return self.parse_tuple()
         elif self.current_token == "%{":
-            self.parse_dictionary()
+            return self.parse_dictionary()
         elif self.current_token in ["true", "false"]:
-            self.parse_boolean()
-        elif len(list(filter(None, re.findall(":[a-zA-Z_][a-zA-Z0-9_]*", self.current_token)))) != 0:
-            self.parse_atom()
+            return self.parse_boolean()
+        elif len(list(filter(None, re.findall(":*[a-zA-Z_][a-zA-Z0-9_]*", self.current_token)))) != 0:
+            return self.parse_atom()
         elif len(list(filter(None, re.findall("[0-9_]*", self.current_token)))) != 0:
-            self.parse_number()
-        elif self.current_token == "#":
-            while self.current_token != '\n':
-                self.next_token()
-            self.match('\n')
-        elif self.current_token == '\n':
-            self.next_token()
+            return self.parse_number()
         else:
             raise SyntaxError(f"Unexpected token: {self.current_token}")
 
     def parse_list(self):
-        self.inside = True
+        value = []
         self.match("[")
-        self.result += '{ "%k": "list", "%v": ['
-        if self.current_token != "]":
-            self.parse_expression()
-            while self.current_token == ",":
-                self.result += ','
+        while self.current_token != "]":
+            value.append(self.parse_expression())
+            if self.current_token == ",":
                 self.match(",")
-                self.parse_expression()
-        self.result += '] }'
-        self.inside = False
         self.match("]")
+        return {"%k": "list", "%v": value}
 
     def parse_tuple(self):
-        self.inside = True
+        value = []
         self.match("{")
-        self.result += '{ "%k": "tuple", "%v": ['
-        if self.current_token != "}":
-            self.parse_expression()
-            while self.current_token == ",":
-                self.result += ','
+        while self.current_token != "}":
+            value.append(self.parse_expression())
+            if self.current_token == ",":
                 self.match(",")
-                self.parse_expression()
-        self.result += '] }'
-        self.inside = False
         self.match("}")
+        return {"%k": "tuple", "%v": value}
 
     def parse_dictionary(self):
-        self.inside = True
+        value = []
         self.match("%{")
-        self.result += '{ "%k": "map", "%v": ['
-        if self.current_token != "}":
-            self.parse_key_pair()
-            while self.current_token == ",":
-                self.result += ','
+        while self.current_token != "}":
+            value.append(self.parse_key_pair())
+            if self.current_token == ",":
                 self.match(",")
-                self.parse_key_pair()
-        self.result += '] }'
-        self.inside = False
         self.match("}")
+        return {"%k": "map", "%v": value}
 
     def parse_key_pair(self):
-        self.result += '['
-        self.parse_expression()
-        self.result += ','
+        key = self.parse_expression()
         self.match(":", "=>")
-        self.parse_expression()
-        self.result += ']'
+        value = self.parse_expression()
+        return [key,value]
 
     def parse_boolean(self):
-        self.result += '{ "%k": "bool", "%v": ' + self.current_token + ' }'
-        if not self.inside:
-            self.result += ','
+        bool = self.current_token
         self.match(self.current_token)
+        return {"%k": "bool", "%v": bool}
 
     def parse_atom(self):
         # handle special cases. what about just charaters, are they not allowed eg: a, b etc
-        if not re.search("truefalse", self.current_token):
-            if self.current_token[0] != ':':
-                self.result += '{ "%k": "atom", "%v": "' + ':' + self.current_token + '" }'
+        atom = self.current_token
+        self.match(self.current_token)
+        if not re.search("truefalse", atom):
+            if atom[0] != ':':
+                return {"%k": "atom", "%v": ':' + atom}
             else:
-                self.result += '{ "%k": "atom", "%v": "' + self.current_token + '" }'
-
-            if not self.inside:
-                self.result += ','
-            self.match(self.current_token)
+                return {"%k": "atom", "%v": atom}
 
     def parse_number(self):
-        if not re.search("[0-9_]*_$", self.current_token):
-            string = self.current_token.replace('_','')
-            self.result += '{ "%k": "int", "%v": ' + string + ' }'
-            self.match(self.current_token)  
-
-            if not self.inside:
-                self.result += ','
-
+        number = self.current_token
+        self.match(self.current_token)
+        if not re.search("[0-9_]*_$", number):
+            string = number.replace('_', '')
+            return {"%k": "int", "%v": int(number)}
         else:
-            raise SyntaxError(f"Bad integer value:  {self.current_token}")
+            raise SyntaxError(f"Bad integer value:  {number}")
 
     def tokenize(self, string):
         pattern = "%{|{|[0-9_]*|:[a-zA-Z_][a-zA-Z0-9_]*|}|,|\[|\]|true|false|[a-zA-Z_][a-zA-Z0-9_]*|=>|:|\\n"
         self.tokens = list(filter(None, re.findall(pattern, string)))
 
+    def remove_comments_whitespace(self, input_string):
+        input_string = re.sub('#.*$', '', input_string, flags=re.MULTILINE)
+        input_string = input_string.replace('\n', ' ')
+        print(input_string)
+        return (input_string)
 
-p = Parser("123_456_789\n1_2_3")
-p.parse_program()
-print(p.result)
+
+# input_string = sys.stdin.read()
+p = Parser("%{ [:a, 22] => { [1, 2, 3], :x },\n   x: [99, %{ a: 33 }]\n}\n\n{ [1, 2], {:a, 22}, %{ a: 99, :b => 11} }\n\n[ {1, 2}, %{[:x] => 33, b: 44}, :c, [], [:d, 55] ]")
+# p = Parser("%{a:5}")
+json_output = json.dumps(p.parse_program(), indent=2)
+print(json_output)
