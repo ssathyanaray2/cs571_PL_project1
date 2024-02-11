@@ -3,8 +3,6 @@ import re
 import sys
 
 
-# handle comments
-
 class Parser:
 
     def __init__(self, input_string):
@@ -48,40 +46,44 @@ class Parser:
             return self.parse_dictionary()
         elif self.current_token in ["true", "false"]:
             return self.parse_boolean()
-        elif len(list(filter(None, re.findall(":*[a-zA-Z_][a-zA-Z0-9_]*", self.current_token)))) != 0:
-            return self.parse_atom()
-        elif len(list(filter(None, re.findall("[0-9_]*", self.current_token)))) != 0:
+        elif re.match("\d+(_\d+)*", self.current_token):
             return self.parse_number()
+        elif re.match(":[a-zA-Z_][a-zA-Z0-9_]*", self.current_token) or re.match("[a-zA-Z_][a-zA-Z0-9_]*",
+                                                                                 self.current_token):
+            return self.parse_atom()
         else:
             raise SyntaxError(f"Unexpected token: {self.current_token}")
 
     def parse_list(self):
         value = []
         self.match("[")
-        while self.current_token != "]":
+        if self.current_token != "]":
             value.append(self.parse_expression())
-            if self.current_token == ",":
+            while self.current_token == ",":
                 self.match(",")
+                value.append(self.parse_expression())
         self.match("]")
         return {"%k": "list", "%v": value}
 
     def parse_tuple(self):
         value = []
         self.match("{")
-        while self.current_token != "}":
+        if self.current_token != "}":
             value.append(self.parse_expression())
-            if self.current_token == ",":
+            while self.current_token == ",":
                 self.match(",")
+                value.append(self.parse_expression())
         self.match("}")
         return {"%k": "tuple", "%v": value}
 
     def parse_dictionary(self):
         value = []
         self.match("%{")
-        while self.current_token != "}":
+        if self.current_token != "}":
             value.append(self.parse_key_pair())
-            if self.current_token == ",":
+            while self.current_token == ",":
                 self.match(",")
+                value.append(self.parse_key_pair())
         self.match("}")
         return {"%k": "map", "%v": value}
 
@@ -89,12 +91,12 @@ class Parser:
         key = self.parse_expression()
         self.match(":", "=>")
         value = self.parse_expression()
-        return [key,value]
+        return [key, value]
 
     def parse_boolean(self):
-        bool = self.current_token
+        b = self.current_token
         self.match(self.current_token)
-        return {"%k": "bool", "%v": bool}
+        return {"%k": "bool", "%v": bool(b)}
 
     def parse_atom(self):
         # handle special cases. what about just charaters, are they not allowed eg: a, b etc
@@ -122,12 +124,17 @@ class Parser:
     def remove_comments_whitespace(self, input_string):
         input_string = re.sub('#.*$', '', input_string, flags=re.MULTILINE)
         input_string = input_string.replace('\n', ' ')
-        print(input_string)
         return (input_string)
 
 
-# input_string = sys.stdin.read()
-p = Parser("%{ [:a, 22] => { [1, 2, 3], :x },\n   x: [99, %{ a: 33 }]\n}\n\n{ [1, 2], {:a, 22}, %{ a: 99, :b => 11} }\n\n[ {1, 2}, %{[:x] => 33, b: 44}, :c, [], [:d, 55] ]")
-# p = Parser("%{a:5}")
-json_output = json.dumps(p.parse_program(), indent=2)
-print(json_output)
+def main():
+    input_string = sys.stdin.read()
+    # p = Parser(input_string)
+    p = Parser("false\n\ntrue\n\ntrue false")
+    json_output = json.dumps(p.parse_program(), indent=2)
+    print(json_output)
+    return json_output
+
+
+if __name__ == "__main__":
+    main()
