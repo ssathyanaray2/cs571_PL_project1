@@ -96,7 +96,11 @@ class Parser:
     def parse_boolean(self):
         b = self.current_token
         self.match(self.current_token)
-        return {"%k": "bool", "%v": bool(b)}
+        if b=='false':
+            b = False 
+        else:
+            b = True
+        return {"%k": "bool", "%v": b}
 
     def parse_atom(self):
         # handle special cases. what about just charaters, are they not allowed eg: a, b etc
@@ -129,8 +133,8 @@ class Parser:
 
 def main():
     input_string = sys.stdin.read()
-    # p = Parser(input_string)
-    p = Parser("false\n\ntrue\n\ntrue false")
+    p = Parser(input_string)
+    # p = Parser("false\n\ntrue\n\ntrue false")
     json_output = json.dumps(p.parse_program(), indent=2)
     print(json_output)
     return json_output
