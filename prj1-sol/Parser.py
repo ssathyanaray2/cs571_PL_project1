@@ -89,7 +89,8 @@ class Parser:
 
     def parse_key_pair(self):
         key = self.parse_expression()
-        self.match(":", "=>")
+        if self.current_token == '=>' :
+            self.match("=>")
         value = self.parse_expression()
         return [key, value]
 
@@ -106,11 +107,10 @@ class Parser:
         # handle special cases. what about just charaters, are they not allowed eg: a, b etc
         atom = self.current_token
         self.match(self.current_token)
-        if not re.search("truefalse", atom):
-            if atom[0] != ':':
-                return {"%k": "atom", "%v": ':' + atom}
-            else:
-                return {"%k": "atom", "%v": atom}
+        if atom[-1] != ':':
+            return {"%k": "atom", "%v": atom}
+        else:
+            return {"%k": "atom", "%v": ':'+atom[:-1]}
 
     def parse_number(self):
         number = self.current_token
@@ -122,7 +122,8 @@ class Parser:
             raise SyntaxError(f"Bad integer value:  {number}")
 
     def tokenize(self, string):
-        pattern = "%{|{|[0-9_]*|:[a-zA-Z_][a-zA-Z0-9_]*|}|,|\[|\]|true|false|[a-zA-Z_][a-zA-Z0-9_]*|=>|:|\\n"
+        
+        pattern = "%{|{|[0-9_]*|:[a-zA-Z_][a-zA-Z0-9_]*|}|,|\[|\]|true|false|[a-zA-Z_][a-zA-Z0-9_]*:|=>|\\n"
         self.tokens = list(filter(None, re.findall(pattern, string)))
 
     def remove_comments_whitespace(self, input_string):
