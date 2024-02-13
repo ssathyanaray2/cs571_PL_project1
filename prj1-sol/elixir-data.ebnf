@@ -1,0 +1,52 @@
+program:
+       :expression
+       |#empty
+       ;
+
+expression:
+	  :list
+          |tuple
+          |dictionary
+          |integer
+          |atom
+          |boolean
+	  ;
+
+list:
+    :'[' expression ( ',' expression )* ']'
+    ;
+
+tuple:
+    :'{' expression ( ',' expression )* '}'
+    ;
+
+dictionary:
+          :'%{'pair ( ','pair )* '}'
+          ;
+
+pair:
+    :expression (':'|'=>') expression
+    ;
+
+atom:
+    :':' (character*|'_) character*
+    ;
+
+integer:
+       :digits ('_') digits
+
+boolean:
+       :"true" | "false"
+       ;
+
+
+character:
+         :letter
+	 |digit
+         ;
+
+letter:
+      :"a" | "b" | ... | "z" | "A" | "B" | ... | "Z"
+
+digit:
+     :"0" | "1" | ... | "9"

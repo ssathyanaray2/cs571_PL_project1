@@ -54,8 +54,7 @@ class Parser:
             return self.parse_boolean()
         elif re.match("\d+(_\d+)*", self.current_token):
             return self.parse_number()
-        elif re.match(":[a-zA-Z_][a-zA-Z0-9_]*", self.current_token) or re.match("[a-zA-Z_][a-zA-Z0-9_]*",
-                                                                                 self.current_token):
+        elif re.match(":[a-zA-Z_][a-zA-Z0-9_]*", self.current_token) or re.match("[a-zA-Z_][a-zA-Z0-9_]*",self.current_token):
             return self.parse_atom()
         else:
             raise SyntaxError(f"Unexpected token: {self.current_token}")

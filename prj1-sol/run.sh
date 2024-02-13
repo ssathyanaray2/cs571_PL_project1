@@ -5,7 +5,7 @@
 
 #sets dir to directory containing this script
 dir=`dirname $0`
-python3 Parser.py
+python3 $dir/Parser.py
 
 #use $dir/ as prefix to access any programs in this dir
 #so that this script can be run from any directory.
