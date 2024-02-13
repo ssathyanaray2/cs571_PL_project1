@@ -7,7 +7,12 @@ class Parser:
 
     def __init__(self, input_string):
         self.tokens = []
-        self.tokenize(self.remove_comments_whitespace(input_string))
+        self.pattern_list = [r'%{', r'{', r'[0-9][0-9_]*', r':[a-zA-Z_][a-zA-Z0-9_]*', r'}', r',', r'\[', r'\]',
+                             r'\b(true|false)\b', r'[a-zA-Z_][a-zA-Z0-9_]*:', r'=>', r'\n']
+        self.token_names = ["START_DICT", "START_TUPLE", "INTEGER", "ATOM", "COMMA", "CLOSE_FLOWER_BRACES",
+                            "START_LIST", "CLOSE_LIST", "BOOL_VALUE", "KEY", "ARROW", "NEWLINE"]
+        self.SKIP_RE = re.compile(r'(( |\t|\n)|\#.*)+')
+        self.tokenize(input_string)
         self.current_token = None
         self.index = -1
         self.next_token()
@@ -33,7 +38,8 @@ class Parser:
     def parse_program(self):
         while self.current_token:
             aux = self.parse_expression()
-            self.result.append(aux)
+            if aux is not None:
+                self.result.append(aux)
 
         return self.result
 
@@ -44,7 +50,7 @@ class Parser:
             return self.parse_tuple()
         elif self.current_token == "%{":
             return self.parse_dictionary()
-        elif self.current_token in ["true", "false"]:
+        elif self.current_token in ['true', 'false']:
             return self.parse_boolean()
         elif re.match("\d+(_\d+)*", self.current_token):
             return self.parse_number()
@@ -89,7 +95,7 @@ class Parser:
 
     def parse_key_pair(self):
         key = self.parse_expression()
-        if self.current_token == '=>' :
+        if self.current_token == '=>':
             self.match("=>")
         value = self.parse_expression()
         return [key, value]
@@ -97,20 +103,19 @@ class Parser:
     def parse_boolean(self):
         b = self.current_token
         self.match(self.current_token)
-        if b=='false':
-            b = False 
+        if b == 'false':
+            b = False
         else:
             b = True
         return {"%k": "bool", "%v": b}
 
     def parse_atom(self):
-        # handle special cases. what about just charaters, are they not allowed eg: a, b etc
         atom = self.current_token
         self.match(self.current_token)
         if atom[-1] != ':':
             return {"%k": "atom", "%v": atom}
         else:
-            return {"%k": "atom", "%v": ':'+atom[:-1]}
+            return {"%k": "atom", "%v": ':' + atom[:-1]}
 
     def parse_number(self):
         number = self.current_token
@@ -122,23 +127,34 @@ class Parser:
             raise SyntaxError(f"Bad integer value:  {number}")
 
     def tokenize(self, string):
-        
-        pattern = "%{|{|[0-9_]*|:[a-zA-Z_][a-zA-Z0-9_]*|}|,|\[|\]|true|false|[a-zA-Z_][a-zA-Z0-9_]*:|=>|\\n"
-        self.tokens = list(filter(None, re.findall(pattern, string)))
+        pos = 0
+        while pos < len(string):
+            match = self.SKIP_RE.match(string, pos)
+            if match:
+                pos += len(match.group())
+            if pos >= len(string):
+                break
 
-    def remove_comments_whitespace(self, input_string):
-        input_string = re.sub('#.*$', '', input_string, flags=re.MULTILINE)
-        input_string = input_string.replace('\n', ' ')
-        return (input_string)
+            for i in range(len(self.token_names)):
 
+                regex = re.compile(self.pattern_list[i])
+                match = regex.match(string, pos)
+
+                if match:
+                    lexeme = match.group(0)
+                    pos += len(lexeme)
+                    self.tokens.append(lexeme)
+                    break
+
+            if not match:
+                raise ValueError(f"Invalid token at position {pos}: {string[pos:]}")
 
 def main():
     input_string = sys.stdin.read()
     p = Parser(input_string)
-    # p = Parser("false\n\ntrue\n\ntrue false")
+    # p = Parser("truefalse")
     json_output = json.dumps(p.parse_program(), indent=2)
     print(json_output)
-    return json_output
 
 
 if __name__ == "__main__":
