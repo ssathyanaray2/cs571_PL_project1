@@ -33,7 +33,8 @@ class Parser:
             self.next_token()
 
         else:
-            raise SyntaxError(f"Expected {expected_token}, got {self.current_token}")
+            sys.stderr.write(f"Expected {expected_token}, got {self.current_token}")
+            sys.exit(1)
 
     def parse_program(self):
         while self.current_token:
@@ -57,7 +58,8 @@ class Parser:
         elif re.match(":[a-zA-Z_][a-zA-Z0-9_]*", self.current_token) or re.match("[a-zA-Z_][a-zA-Z0-9_]*",self.current_token):
             return self.parse_atom()
         else:
-            raise SyntaxError(f"Unexpected token: {self.current_token}")
+            sys.stderr.write(f"Unexpected token: {self.current_token}")
+            sys.exit(1)
 
     def parse_list(self):
         value = []
@@ -123,7 +125,8 @@ class Parser:
             string = number.replace('_', '')
             return {"%k": "int", "%v": int(number)}
         else:
-            raise SyntaxError(f"Bad integer value:  {number}")
+            sys.stderr.write(f"Bad integer value:  {number}")
+            sys.exit(1)
 
     def tokenize(self, string):
         pos = 0
@@ -146,14 +149,17 @@ class Parser:
                     break
 
             if not match:
-                raise ValueError(f"Invalid token at position {pos}: {string[pos:]}")
+                # raise ValueError(f"Invalid token at position {pos}: {string[pos:]}")
+                sys.stderr.write(f"Invalid token at position {pos}: {string[pos:]}\n")
+                sys.exit(1)
+                
 
 def main():
     input_string = sys.stdin.read()
     p = Parser(input_string)
     # p = Parser("truefalse")
     json_output = json.dumps(p.parse_program(), indent=2)
-    print(json_output)
+    sys.stdout.write(json_output)
 
 
 if __name__ == "__main__":
